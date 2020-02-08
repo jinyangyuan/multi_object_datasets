@@ -53,19 +53,7 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
   with tf.name_scope(name):
     _, n_points, n_true_groups = true_mask.shape.as_list()
     n_pred_groups = pred_mask.shape.as_list()[-1]
-    if n_points <= n_true_groups and n_points <= n_pred_groups:
-      # This rules out the n_true_groups == n_pred_groups == n_points
-      # corner case, and also n_true_groups == n_pred_groups == 0, since
-      # that would imply n_points == 0 too.
-      # The sklearn implementation has a corner-case branch which does
-      # handle this. We chose not to support these cases to avoid counting
-      # distinct clusters just to check if we have one cluster per datapoint.
-      raise ValueError(
-          "adjusted_rand_index requires n_groups < n_points. We don't handle "
-          "the special cases that can occur when you have one cluster "
-          "per datapoint.")
 
-    true_group_ids = tf.argmax(true_mask, -1)
     pred_group_ids = tf.argmax(pred_mask, -1)
     # We convert true and predicted clusters to one-hot ('oh') representations.
     true_mask_oh = tf.cast(true_mask, tf.float32)  # already one-hot
@@ -80,16 +68,14 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
     rindex = tf.reduce_sum(nij * (nij - 1), axis=[1, 2])
     aindex = tf.reduce_sum(a * (a - 1), axis=1)
     bindex = tf.reduce_sum(b * (b - 1), axis=1)
-    expected_rindex = aindex * bindex / (n_points*(n_points-1))
+    denominator1 = n_points * (n_points - 1)
+    expected_rindex = aindex * bindex / denominator1
     max_rindex = (aindex + bindex) / 2
-    ari = (rindex - expected_rindex) / (max_rindex - expected_rindex)
+    denominator2 = max_rindex - expected_rindex
+    ari = (rindex - expected_rindex) / denominator2
 
-    # The case where n_true_groups == n_pred_groups == 1 needs to be
-    # special-cased (to return 1) as the above formula gives a divide-by-zero.
-    # This might not work when true_mask has values that do not sum to one:
-    both_single_cluster = tf.logical_and(
-        _all_equal(true_group_ids), _all_equal(pred_group_ids))
-    return tf.where(both_single_cluster, tf.ones_like(ari), ari)
+    invalid = tf.logical_or(tf.equal(denominator1, 0), tf.equal(denominator2, 0))
+    return tf.where(invalid, tf.ones_like(ari), ari)
 
 
 def _all_equal(values):
