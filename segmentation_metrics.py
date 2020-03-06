@@ -51,7 +51,6 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
       sklearn.metrics.adjusted_rand_score.html
   """
   with tf.name_scope(name):
-    _, n_points, n_true_groups = true_mask.shape.as_list()
     n_pred_groups = pred_mask.shape.as_list()[-1]
 
     pred_group_ids = tf.argmax(pred_mask, -1)
@@ -76,8 +75,3 @@ def adjusted_rand_index(true_mask, pred_mask, name='ari_score'):
 
     invalid = tf.logical_or(tf.equal(denominator1, 0), tf.equal(denominator2, 0))
     return tf.where(invalid, tf.ones_like(ari), ari)
-
-
-def _all_equal(values):
-  """Whether values are all equal along the final axis."""
-  return tf.reduce_all(tf.equal(values, values[..., :1]), axis=-1)
